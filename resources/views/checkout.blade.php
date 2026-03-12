@@ -174,17 +174,46 @@
                                         @endforeach
                                     </tbody>
                                     <tbody class="checkout-details">
+                                        {{-- 1. Dòng Tổng phụ --}}
                                         <tr>
-                                            <td>**Tổng phụ:**</td>
+                                            <td><strong>Tổng phụ:</strong></td>
                                             <td>{{ number_format($subtotal, 0, ',', '.') }}₫</td>
                                         </tr>
+
+                                        {{-- 2. Dòng Giảm giá (Chỉ hiển thị nếu Session có mã giảm giá) --}}
+                                        @if (session()->has('coupon'))
+                                            <tr>
+                                                <td><strong>Giảm giá:</strong></td>
+                                                <td class="text-danger">
+                                                    -{{ number_format(session('coupon')['discount'], 0, ',', '.') }}₫
+                                                    <small>({{ session('coupon')['code'] }})</small>
+                                                </td>
+                                            </tr>
+                                        @endif
+
+                                        {{-- 3. Phí vận chuyển --}}
                                         <tr>
-                                            <td>**Phí vận chuyển:**</td>
+                                            <td><strong>Phí vận chuyển:</strong></td>
                                             <td>0₫ (Tạm thời miễn phí)</td>
                                         </tr>
+
+                                        {{-- 4. Dòng Tổng cộng cuối cùng --}}
                                         <tr>
-                                            <td>**Tổng cộng:**</td>
-                                            <td>**{{ number_format($subtotal, 0, ',', '.') }}₫**</td>
+                                            <td><strong>Tổng cộng:</strong></td>
+                                            <td>
+                                                <strong style="color: #F28123; font-size: 1.2em;">
+                                                    @php
+                                                        $discount = session()->has('coupon')
+                                                            ? session('coupon')['discount']
+                                                            : 0;
+                                                        $finalTotal = $subtotal - $discount;
+                                                        if ($finalTotal < 0) {
+                                                            $finalTotal = 0;
+                                                        }
+                                                    @endphp
+                                                    {{ number_format($finalTotal, 0, ',', '.') }}₫
+                                                </strong>
+                                            </td>
                                         </tr>
                                     </tbody>
                                 </table>

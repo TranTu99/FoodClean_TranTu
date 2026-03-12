@@ -82,7 +82,10 @@
             <h3 style="padding: 15px; margin-top: 0; border-bottom: 1px solid #495057;">ADMIN PANEL</h3>
             <a href="{{ route('admin.products.index') }}"
                 style="background-color: #f6a505; color: white !important; font-weight: bold;">
-                📊 Xem Danh Sách Sản Phẩm
+                📊 Quản Lý Sản Phẩm
+            </a>
+            <a href="{{ route('admin.orders.index') }}">
+                🛒 Quản Lý Đơn Hàng
             </a>
             <a href="{{ route('admin.products.create') }}">
                 ➕ Thêm Sản Phẩm Mới

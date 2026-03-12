@@ -17,7 +17,7 @@ class RouteServiceProvider extends ServiceProvider
      *
      * @var string
      */
-    public const HOME = '/'; // ĐIỀU CHỈNH: Điều hướng về trang chủ
+    public const HOME = '/admin'; // ĐIỀU CHỈNH: Điều hướng về trang chủ
 
     /**
      * Define your route model bindings, pattern filters, and other route configuration.

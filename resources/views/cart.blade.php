@@ -89,6 +89,7 @@
                                                 <td class="product-quantity">
                                                     <input type="number" name="quantities[{{ $item->product_id }}]"
                                                         value="{{ $item->quantity }}" min="1" class="quantity-input"
+                                                        data-id="{{ $item->product_id }}" {{-- THÊM DÒNG NÀY --}}
                                                         data-price="{{ $price }}"
                                                         style="width: 70px; text-align: center;">
                                                 </td>
@@ -135,6 +136,7 @@
                                 <thead class="total-table-head">
                                     <tr class="table-total-row">
                                         <th>Tổng Giỏ hàng</th>
+                                        <th>Giá trị</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -142,10 +144,34 @@
                                         <td><strong>Tổng phụ: </strong></td>
                                         <td class="subtotal-display">{{ number_format($subtotal, 0, ',', '.') }}₫</td>
                                     </tr>
+
+                                    {{-- HIỂN THỊ MÃ GIẢM GIÁ NẾU CÓ --}}
+                                    @if (session()->has('coupon'))
+                                        <tr class="total-data">
+                                            <td>
+                                                <strong>Giảm giá ({{ session('coupon')['code'] }}):</strong>
+                                                <br>
+                                                <a href="{{ route('coupon.remove') }}" class="text-danger small"><i
+                                                        class="fas fa-trash"></i> Xóa mã</a>
+                                            </td>
+                                            <td class="text-danger">
+                                                -{{ number_format(session('coupon')['discount'], 0, ',', '.') }}₫</td>
+                                        </tr>
+                                    @endif
+
                                     <tr class="total-data">
                                         <td><strong>Tổng cộng:</strong> </td>
-                                        <td><strong
-                                                class="grand-total-display">{{ number_format($subtotal, 0, ',', '.') }}₫</strong>
+                                        <td>
+                                            <strong class="grand-total-display">
+                                                {{-- Tính toán tổng cuối cùng = Tổng phụ - giảm giá (nếu có) --}}
+                                                @php
+                                                    $discount = session()->has('coupon')
+                                                        ? session('coupon')['discount']
+                                                        : 0;
+                                                    $grandTotal = $subtotal - $discount;
+                                                @endphp
+                                                {{ number_format($grandTotal, 0, ',', '.') }}₫
+                                            </strong>
                                         </td>
                                     </tr>
                                 </tbody>
@@ -154,11 +180,15 @@
                                 <a href="{{ route('checkout') }}" class="boxed-btn black">Tiến hành Thanh toán</a>
                             </div>
                         </div>
+
                         <div class="coupon-section mt-5">
                             <h3>Áp dụng Mã giảm giá</h3>
                             <div class="coupon-form-wrap">
-                                <form action="">
-                                    <p><input type="text" placeholder="Mã giảm giá"></p>
+                                {{-- SỬA FORM NÀY ĐỂ GỬI LÊN CONTROLLER --}}
+                                <form action="{{ route('coupon.apply') }}" method="POST">
+                                    @csrf
+                                    <p><input type="text" name="coupon_code" placeholder="Nhập mã giảm giá..." required>
+                                    </p>
                                     <p><input type="submit" value="Áp dụng"></p>
                                 </form>
                             </div>
@@ -200,37 +230,84 @@
     <script>
         $(document).ready(function() {
 
+            // 1. Hàm định dạng tiền tệ Việt Nam
             function formatVND(n) {
                 return n.toLocaleString('vi-VN') + '₫';
             }
 
+            // 2. Hàm cập nhật hiển thị tổng tiền trên giao diện
             function updateCartTotals() {
                 var grandTotal = 0;
+                // Lấy mức giảm giá hiện tại từ Session (do Laravel truyền sang)
+                var couponDiscount = {{ session()->has('coupon') ? session('coupon')['discount'] : 0 }};
+
                 $('.quantity-input').each(function() {
                     var input = $(this);
                     var price = parseFloat(input.data('price'));
                     var quantity = parseInt(input.val());
 
+                    // Kiểm tra nếu số lượng không hợp lệ
                     if (isNaN(quantity) || quantity < 1) {
                         quantity = 1;
                         input.val(1);
                     }
+
+                    // Tính tiền cho từng dòng sản phẩm
                     var itemSubtotal = price * quantity;
-                    // Cập nhật Tổng phụ cho từng sản phẩm
                     input.closest('tr').find('.item-subtotal-display').text(formatVND(itemSubtotal));
 
                     grandTotal += itemSubtotal;
                 });
-                // Cập nhật hiển thị Tổng phụ và Tổng cộng
-                var formattedTotal = formatVND(grandTotal);
-                $('.subtotal-display').text(formattedTotal);
-                $('.grand-total-display').text(formattedTotal);
+
+                // Hiển thị Tổng phụ (chưa giảm giá)
+                $('.subtotal-display').text(formatVND(grandTotal));
+
+                // Tính Tổng cộng cuối cùng (sau khi trừ Coupon)
+                var finalTotal = grandTotal - couponDiscount;
+                if (finalTotal < 0) finalTotal = 0;
+
+                $('.grand-total-display').text(formatVND(finalTotal));
             }
-            // Lắng nghe sự kiện thay đổi trên các ô nhập số lượng
-            $(document).on('input', '.quantity-input', function() {
-                updateCartTotals();
+
+            // 3. Lắng nghe sự kiện thay đổi số lượng (Sử dụng 'change' để tránh gửi request liên tục khi đang gõ)
+            $(document).on('change', '.quantity-input', function() {
+                var input = $(this);
+                var productId = input.data('id'); // Lấy ID sản phẩm từ thuộc tính data-id
+                var quantity = input.val();
+
+                // Hiệu ứng chờ cho người dùng (tùy chọn)
+                input.css('opacity', '0.5');
+
+                // Gửi Ajax để cập nhật số lượng vào Database
+                $.ajax({
+                    url: "{{ route('cart.update') }}",
+                    method: "POST",
+                    data: {
+                        _token: "{{ csrf_token() }}",
+                        _method: "PATCH", // NHƯNG thêm dòng này để Laravel hiểu là PATCH
+                        product_id: productId,
+                        quantity: quantity
+                    },
+                    success: function(response) {
+                        input.css('opacity', '1');
+                        console.log("Database đã cập nhật số lượng mới.");
+
+                        // Sau khi lưu DB thành công, cập nhật lại các con số trên giao diện
+                        updateCartTotals();
+
+                        /** * LƯU Ý: Nếu logic Coupon của bạn phức tạp (ví dụ: giảm 10% tổng đơn)
+                         * thì nên dùng location.reload() để Server tính lại Coupon chính xác nhất.
+                         * Nếu là giảm số tiền cố định thì updateCartTotals() là đủ.
+                         **/
+                    },
+                    error: function() {
+                        input.css('opacity', '1');
+                        alert('Không thể cập nhật số lượng. Vui lòng kiểm tra kết nối!');
+                    }
+                });
             });
-            // Gọi hàm này khi tải trang để đảm bảo dữ liệu ban đầu khớp với JS
+
+            // 4. Khởi chạy hàm tính toán ngay khi load trang
             updateCartTotals();
         });
     </script>

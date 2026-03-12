@@ -47,7 +47,7 @@ class CustomerAuthController extends Controller
         if (Auth::attempt($credentials, $remember)) {
             $request->session()->regenerate(); //Tạo ra một Session ID mới và xóa Session ID cũ Đảm bảo Hacker không thể sử dụng Session ID cũ (đã biết trước) để giả mạo người dùng sau khi họ đăng nhập thành công.
             if (Auth::user()->is_admin == 1) {
-                return redirect()->intended('/admin/products')->with('success', 'Đăng nhập Admin thành công!');
+                return redirect()->intended('/admin')->with('success', 'Đăng nhập Admin thành công!');
             }
             //hàm intended() là chuyển hướng đến trang ban đầu dự trên session , nếu ko có thì tiến thẳng home
             return redirect()->intended(route('home'))->with('success', 'Đăng nhập thành công!');
